@@ -16,6 +16,8 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 
+	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/mocktracer"
 	grpclb "gitlab.10101111.com/oped/DBMS_LIBS/grpclb/ly-grpclb"
 	registry "gitlab.10101111.com/oped/DBMS_LIBS/grpclb/ly-grpclb/registry/etcd3"
 	etcd3 "go.etcd.io/etcd/clientv3"
@@ -34,8 +36,8 @@ const (
 
 func main() {
 	logrusEntry := logrus.NewEntry(logrus.StandardLogger())
-	opts := []grpc_logrus.Option{
-		//grpc_logrus.WithLevels(customFunc),
+	logopts := []grpc_logrus.Option{
+		grpc_logrus.WithLevels(grpc_logrus.DefaultCodeToLevel),
 	}
 
 	// Make sure that log statements internal to gRPC library are logged using the logrus Logger as well.
@@ -58,10 +60,7 @@ func main() {
 
 	}
 	defer lbc.Close()
-	if err != nil {
-		log.Fatalf("did not connect: %v", err)
-	}
-	defer lbc.Close()
+
 	lbcr := pb.NewGreeterClient(lbc)
 	lbcclicr := healthpb.NewHealthClient(lbc)
 	rew, err := lbcr.SayHello(context.WithValue(context.TODO(), "yml", "hahah"),
@@ -84,17 +83,26 @@ func main() {
 	}
 	//return
 
+	log.Printf("==================tracing from hear=============")
+
+	mockTracer := mocktracer.New()
+	opentracing.SetGlobalTracer(mockTracer)
+	tracingopts := []grpc_opentracing.Option{
+		//if not ser tracer , use GlobalTracer
+		grpc_opentracing.WithTracer(mockTracer),
+	}
+
 	// Set up a connection to the server.
 	conn, err := grpc.Dial(address, grpc.WithInsecure(),
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 60 * time.Second, Timeout: 19 * time.Second, PermitWithoutStream: true}),
 		grpc.WithMaxMsgSize(MSG_MAX_SIZE),
 		grpc.WithWriteBufferSize(BUF_MAX_SIZE),
 		grpc.WithReadBufferSize(BUF_MAX_SIZE),
-		grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(grpc_opentracing.UnaryClientInterceptor(),
-			grpc_logrus.UnaryClientInterceptor(logrusEntry, opts...),
+		grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(grpc_opentracing.UnaryClientInterceptor(tracingopts...),
+			grpc_logrus.UnaryClientInterceptor(logrusEntry, logopts...),
 		)),
-		grpc.WithStreamInterceptor(grpc_middleware.ChainStreamClient(grpc_opentracing.StreamClientInterceptor(),
-			grpc_logrus.StreamClientInterceptor(logrusEntry, opts...),
+		grpc.WithStreamInterceptor(grpc_middleware.ChainStreamClient(grpc_opentracing.StreamClientInterceptor(tracingopts...),
+			grpc_logrus.StreamClientInterceptor(logrusEntry, logopts...),
 		)),
 		grpc.WithTimeout(5*time.Second),
 	)
@@ -113,11 +121,9 @@ func main() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	//	r, err := c.SayHello(ctx, &pb.HelloRequest{Name: name})
-	//	if err != nil {
-	//		log.Fatalf("could not greet: %v", err)
-	//	}
-	//	log.Printf("Greeting: %s", r.Message)
+
+	//opentracing.StartSpanFromContextWithTracer(ctx, mockTracer, "hello")
+
 	ireq := new(pb.YmlRequest)
 	ireq.Bindata = []byte{}
 	ireq.Binintdata = []int64{999}

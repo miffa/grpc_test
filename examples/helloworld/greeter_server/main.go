@@ -12,6 +12,8 @@ import (
 	"time"
 
 	//"gitlab.10101111.com/oped/dbms_lib/logrus"
+	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/mocktracer"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 
@@ -75,10 +77,16 @@ func main() {
 	}
 
 	logrusEntry := logrus.NewEntry(logrus.StandardLogger())
-	opts := []grpc_logrus.Option{
-		//grpc_logrus.WithLevels(customFunc),
+	logopts := []grpc_logrus.Option{
+		grpc_logrus.WithLevels(grpc_logrus.DefaultCodeToLevel),
 	}
 	logrus.SetLevel(logrus.DebugLevel)
+
+	mockTracer := mocktracer.New()
+	opentracing.SetGlobalTracer(mockTracer)
+	tracingopts := []grpc_opentracing.Option{
+		grpc_opentracing.WithTracer(mockTracer),
+	}
 
 	rcustomfunc = RecoveryFromPanic
 	rcustomfuncCtx = RecoveryContexyFromPanic
@@ -97,15 +105,15 @@ func main() {
 	}),
 		grpc.ConnectionTimeout(10*time.Second),
 		grpc_middleware.WithUnaryServerChain(
-			grpc_opentracing.UnaryServerInterceptor(),
+			grpc_opentracing.UnaryServerInterceptor(tracingopts...),
 			grpc_recovery.UnaryServerInterceptor(ropts...),
-			grpc_logrus.UnaryServerInterceptor(logrusEntry, opts...),
+			grpc_logrus.UnaryServerInterceptor(logrusEntry, logopts...),
 		),
 
 		grpc_middleware.WithStreamServerChain(
-			grpc_opentracing.StreamServerInterceptor(),
+			grpc_opentracing.StreamServerInterceptor(tracingopts...),
 			grpc_recovery.StreamServerInterceptor(ropts...),
-			grpc_logrus.StreamServerInterceptor(logrusEntry, opts...),
+			grpc_logrus.StreamServerInterceptor(logrusEntry, logopts...),
 		),
 	)
 
@@ -123,6 +131,7 @@ func main() {
 
 	registrySrv.Register()
 	defer registrySrv.Deregister()
+
 	cg := make(chan os.Signal, 1)
 	signal.Notify(cg,
 		syscall.SIGHUP,
