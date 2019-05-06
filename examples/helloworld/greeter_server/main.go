@@ -13,9 +13,9 @@ import (
 
 	//"gitlab.10101111.com/oped/dbms_lib/logrus"
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/mocktracer"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
+	"gitlab.10101111.com/oped/DBMS_LIBS/mitracer"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
@@ -82,7 +82,7 @@ func main() {
 	}
 	logrus.SetLevel(logrus.DebugLevel)
 
-	mockTracer := mocktracer.New()
+	mockTracer := mitracer.New()
 	opentracing.SetGlobalTracer(mockTracer)
 	tracingopts := []grpc_opentracing.Option{
 		grpc_opentracing.WithTracer(mockTracer),

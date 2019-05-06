@@ -17,9 +17,9 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/mocktracer"
 	grpclb "gitlab.10101111.com/oped/DBMS_LIBS/grpclb/ly-grpclb"
 	registry "gitlab.10101111.com/oped/DBMS_LIBS/grpclb/ly-grpclb/registry/etcd3"
+	"gitlab.10101111.com/oped/DBMS_LIBS/mitracer"
 	etcd3 "go.etcd.io/etcd/clientv3"
 )
 
@@ -85,7 +85,7 @@ func main() {
 
 	log.Printf("==================tracing from hear=============")
 
-	mockTracer := mocktracer.New()
+	mockTracer := mitracer.New()
 	opentracing.SetGlobalTracer(mockTracer)
 	tracingopts := []grpc_opentracing.Option{
 		//if not ser tracer , use GlobalTracer
