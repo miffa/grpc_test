@@ -37,6 +37,9 @@ message HelloReply {
   string message = 1;
 }
 
+message NillReq {
+}
+
 
 message YmlRequest {
   bytes bindata = 1;
